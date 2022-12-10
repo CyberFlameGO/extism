@@ -9,8 +9,8 @@ typedef enum ExtismValType {
   F32,
   F64,
   V128,
-  ExternRef,
   FuncRef,
+  ExternRef,
 } ExtismValType;
 
 /**
@@ -77,7 +77,7 @@ void extism_function_free(struct ExtismFunction *ptr);
 ExtismPlugin extism_plugin_new_with_functions(struct ExtismContext *ctx,
                                               const uint8_t *wasm,
                                               ExtismSize wasm_size,
-                                              struct ExtismFunction **functions,
+                                              const struct ExtismFunction *const *functions,
                                               uint32_t nfunctions,
                                               bool with_wasi);
 

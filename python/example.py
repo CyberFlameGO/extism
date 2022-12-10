@@ -4,7 +4,7 @@ import hashlib
 import requests
 
 sys.path.append(".")
-from extism import Context, function, host_fn
+from extism import Context, Function, host_fn
 
 if len(sys.argv) > 1:
     data = sys.argv[1].encode()
@@ -13,9 +13,10 @@ else:
 
 
 @host_fn
-def testing_123(inputs, n_inputs, outputs, n_ouputs):
-    print(inputs[0])
+def testing_123(num):
+    print(num)
     print(requests.get("https://example.com").text)
+    return num
 
 
 # void(*)(ExtismVal *, uint32_t, ExtismVal *, uint32_t)
@@ -27,7 +28,7 @@ with Context() as context:
     hash = hashlib.sha256(wasm).hexdigest()
     config = {"wasm": [{"data": wasm, "hash": hash}], "memory": {"max": 5}}
 
-    functions = [function("testing_123", [], [], testing_123)]
+    functions = [Function("testing_123", testing_123, [1], [1])]
     plugin = context.plugin(config, wasi=True, functions=functions)
     # Call `count_vowels`
     j = json.loads(plugin.call("count_vowels", data))

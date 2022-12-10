@@ -41,14 +41,15 @@ pub unsafe extern "C" fn extism_plugin_new(
 }
 
 #[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord)]
 pub enum ExtismValType {
     I32,
     I64,
     F32,
     F64,
     V128,
-    ExternRef,
     FuncRef,
+    ExternRef,
 }
 
 #[repr(C)]
@@ -74,8 +75,9 @@ impl From<&ExtismValType> for ValType {
             ExtismValType::F32 => ValType::F32,
             ExtismValType::F64 => ValType::F64,
             ExtismValType::V128 => ValType::V128,
-            ExtismValType::ExternRef => ValType::ExternRef,
-            ExtismValType::FuncRef => ValType::FuncRef,
+            _ => todo!(),
+            //ExtismValType::ExternRef => ValType::ExternRef,
+            //ExtismValType::FuncRef => ValType::FuncRef,
         }
     }
 }
@@ -91,7 +93,25 @@ impl From<&wasmtime::Val> for ExtismVal {
                     i32: value.unwrap_i32(),
                 },
             },
-            _ => todo!(),
+            wasmtime::ValType::I64 => ExtismVal {
+                t: ExtismValType::I64,
+                v: ExtismValUnion {
+                    i64: value.unwrap_i64(),
+                },
+            },
+            wasmtime::ValType::F32 => ExtismVal {
+                t: ExtismValType::F32,
+                v: ExtismValUnion {
+                    f32: value.unwrap_f32(),
+                },
+            },
+            wasmtime::ValType::F64 => ExtismVal {
+                t: ExtismValType::F64,
+                v: ExtismValUnion {
+                    f64: value.unwrap_f64(),
+                },
+            },
+            t => todo!("{}", t),
         }
     }
 }
@@ -114,6 +134,7 @@ pub unsafe extern "C" fn extism_plugin_function(
         .iter()
         .map(ValType::from)
         .collect::<Vec<_>>();
+    let output_types = std::slice::from_raw_parts(outputs, noutputs as usize).to_vec();
     let outputs = std::slice::from_raw_parts(outputs, noutputs as usize)
         .iter()
         .map(ValType::from)
@@ -127,14 +148,30 @@ pub unsafe extern "C" fn extism_plugin_function(
         inputs,
         outputs,
         move |_caller, inputs, outputs| {
-            let inputs: Vec<_> = inputs.into_iter().map(|x| ExtismVal::from(x)).collect();
-            let mut outputs: Vec<_> = outputs.into_iter().map(|x| ExtismVal::from(&*x)).collect();
+            let inputs: Vec<_> = inputs.into_iter().map(ExtismVal::from).collect();
+            let mut output_tmp: Vec<_> = output_types
+                .iter()
+                .map(|t| ExtismVal {
+                    t: t.clone(),
+                    v: ExtismValUnion { i32: 0 },
+                })
+                .collect();
             func(
                 inputs.as_ptr(),
                 inputs.len() as u32,
-                outputs.as_mut_ptr(),
-                outputs.len() as u32,
+                output_tmp.as_mut_ptr(),
+                output_tmp.len() as u32,
             );
+
+            for (tmp, out) in output_tmp.iter().zip(outputs.iter_mut()) {
+                match tmp.t {
+                    ExtismValType::I32 => *out = Val::I32(tmp.v.i32),
+                    ExtismValType::I64 => *out = Val::I64(tmp.v.i64),
+                    ExtismValType::F32 => *out = Val::F32(tmp.v.f32 as u32),
+                    ExtismValType::F64 => *out = Val::F64(tmp.v.f64 as u64),
+                    _ => todo!(),
+                }
+            }
             Ok(())
         },
     );
@@ -156,7 +193,7 @@ pub unsafe extern "C" fn extism_plugin_new_with_functions(
     ctx: *mut Context,
     wasm: *const u8,
     wasm_size: Size,
-    functions: *mut *mut ExtismFunction,
+    functions: *const *const ExtismFunction,
     nfunctions: u32,
     with_wasi: bool,
 ) -> PluginIndex {

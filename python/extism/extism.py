@@ -191,9 +191,12 @@ class Context:
         return Plugin(self, manifest, wasi, config, functions)
 
 
-def function(name, args, returns, f):
-    return _lib.extism_plugin_function(name.encode(), args, len(args), returns,
+class Function:
+    def __init__(self, name: str, f, args, returns):
+        self._function = _lib.extism_plugin_function(name.encode(), args, len(args), returns,
                                        len(returns), f)
+    def __del__(self):
+        _lib.extism_function_free(self._function)
 
 
 class Plugin:
@@ -219,6 +222,7 @@ class Plugin:
 
         # Register plugin
         if functions is not None:
+            functions = [f._function for f in functions]
             ptr = _ffi.new("ExtismFunction*[]", functions)
             self.plugin = _lib.extism_plugin_new_with_functions(
                 context.pointer, wasm, len(wasm), ptr, len(functions), wasi)
@@ -337,17 +341,51 @@ class Plugin:
         self.__del__()
 
 
+def _convert_input(x):
+    if x.t == 0:
+        return x.v.i32
+    elif x.t == 1:
+        return x.v.i64
+    elif x.t == 2:
+        return x.v.f32
+    elif x.y == 3:
+        return x.v.f64
+    return None
+
+
+def _convert_output(x, v):
+    if x.t == 0:
+        x.v.i32 = int(v)
+    elif x.t == 1:
+        x.v.i64 = int(v)
+    elif x.t == 2:
+        x.v.f32 = float(v)
+    elif x.t == 3:
+        x.v.f64 = float(v)
+    else:
+        raise Error("Unsupported return type: " + str(x.t))
+
+
 def host_fn(func):
-
-    def handle_args(inputs, n_inputs, outputs, n_ouputs):
+    
+    @_ffi.callback("void(ExtismVal*, uint32_t, ExtismVal*, uint32_t)")
+    def handle_args(inputs, n_inputs, outputs, n_outputs):
         inp = []
-        outp = []
-        return func(inputs, outputs)
 
-    return _ffi.callback("void(ExtismVal*, uint32_t, ExtismVal*, uint32_t)",
-                         func)
+        for i in range(n_inputs):
+            inp.append(_convert_input(inputs[i]))
+        output = func(*inp)
+        if output is None:
+            return
+       
+        if n_outputs > 1 and not isinstance(output, list):
+            raise Error("Invalid number of return values")
 
+        if n_outputs == 1 and not isinstance(output, list):
+            _convert_output(outputs[0], output)
+            return
+        
+        for i in range(n_outputs):
+            _convert_output(outputs[i], output[i])
 
-# @ffi.callback("void(ExtismVal*, uint32_t, ExtismVal*, uint32_t)")
-# def testing_123(inputs, n_inputs, outputs, n_ouputs):
-# print(requests.get("https://example.com").text)
+    return handle_args
