@@ -55,7 +55,7 @@ impl From<ValType> for wasmtime::ValType {
 pub struct Function(
     pub(crate) String,
     pub(crate) wasmtime::FuncType,
-    pub(crate)  Box<
+    pub(crate)  std::sync::Arc<
         dyn Fn(
                 wasmtime::Caller<Internal>,
                 &[wasmtime::Val],
@@ -89,7 +89,7 @@ impl Function {
                 args.into_iter().map(wasmtime::ValType::from),
                 returns.into_iter().map(wasmtime::ValType::from),
             ),
-            Box::new(f),
+            std::sync::Arc::new(f),
         )
     }
 

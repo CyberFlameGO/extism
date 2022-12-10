@@ -40,6 +40,108 @@ pub unsafe extern "C" fn extism_plugin_new(
     ctx.new_plugin(data, with_wasi)
 }
 
+#[repr(C)]
+pub enum ExtismValType {
+    I32,
+    I64,
+    F32,
+    F64,
+    V128,
+    ExternRef,
+    FuncRef,
+}
+
+impl From<&ExtismValType> for ValType {
+    fn from(value: &ExtismValType) -> Self {
+        match value {
+            ExtismValType::I32 => ValType::I32,
+            ExtismValType::I64 => ValType::I64,
+            ExtismValType::F32 => ValType::F32,
+            ExtismValType::F64 => ValType::F64,
+            ExtismValType::V128 => ValType::V128,
+            ExtismValType::ExternRef => ValType::ExternRef,
+            ExtismValType::FuncRef => ValType::FuncRef,
+        }
+    }
+}
+
+pub struct ExtismVal(wasmtime::Val);
+
+pub struct ExtismFunction(Function);
+
+#[no_mangle]
+pub unsafe extern "C" fn extism_plugin_function(
+    name: *const std::ffi::c_char,
+    inputs: *const ExtismValType,
+    ninputs: u32,
+    outputs: *const ExtismValType,
+    noutputs: u32,
+    func: extern "C" fn(
+        inputs: *const ExtismVal,
+        ninputs: u32,
+        outputs: *mut ExtismVal,
+        noutputs: u32,
+    ),
+) -> *mut ExtismFunction {
+    let inputs = std::slice::from_raw_parts(inputs, ninputs as usize)
+        .iter()
+        .map(ValType::from)
+        .collect::<Vec<_>>();
+    let outputs = std::slice::from_raw_parts(outputs, noutputs as usize)
+        .iter()
+        .map(ValType::from)
+        .collect::<Vec<_>>();
+    let name = match std::ffi::CStr::from_ptr(name).to_str() {
+        Ok(x) => x,
+        Err(_) => return std::ptr::null_mut(),
+    };
+    let f = Function::new(
+        name.to_string(),
+        inputs,
+        outputs,
+        move |_caller, inputs, outputs| {
+            let inputs: Vec<_> = inputs.into_iter().map(|x| ExtismVal(x.clone())).collect();
+            let mut outputs: Vec<_> = outputs.into_iter().map(|x| ExtismVal(x.clone())).collect();
+            func(
+                inputs.as_ptr(),
+                inputs.len() as u32,
+                outputs.as_mut_ptr(),
+                outputs.len() as u32,
+            );
+            Ok(())
+        },
+    );
+    Box::into_raw(Box::new(ExtismFunction(f)))
+}
+
+/// Create a new plugin with additional host functions
+///
+/// `wasm`: is a WASM module (wat or wasm) or a JSON encoded manifest
+/// `wasm_size`: the length of the `wasm` parameter
+/// `with_wasi`: enables/disables WASI
+#[no_mangle]
+pub unsafe extern "C" fn extism_plugin_new_with_functions(
+    ctx: *mut Context,
+    wasm: *const u8,
+    wasm_size: Size,
+    functions: *mut *mut ExtismFunction,
+    nfunctions: u32,
+    with_wasi: bool,
+) -> PluginIndex {
+    trace!("Call to extism_plugin_new with wasm pointer {:?}", wasm);
+    let ctx = &mut *ctx;
+    let data = std::slice::from_raw_parts(wasm, wasm_size as usize);
+    let mut funcs = vec![];
+
+    for i in 0..nfunctions {
+        unsafe {
+            let f = Box::from_raw(*functions.add(i as usize));
+            funcs.push(f.0.clone());
+        }
+    }
+    ctx.new_plugin_with_functions(data, funcs, with_wasi)
+}
+
 /// Update a plugin, keeping the existing ID
 ///
 /// Similar to `extism_plugin_new` but takes an `index` argument to specify

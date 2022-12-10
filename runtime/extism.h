@@ -3,10 +3,24 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+typedef enum ExtismValType {
+  I32,
+  I64,
+  F32,
+  F64,
+  V128,
+  ExternRef,
+  FuncRef,
+} ExtismValType;
+
 /**
  * A `Context` is used to store and manage plugins
  */
 typedef struct ExtismContext ExtismContext;
+
+typedef struct ExtismFunction ExtismFunction;
+
+typedef struct ExtismVal ExtismVal;
 
 typedef int32_t ExtismPlugin;
 
@@ -33,6 +47,27 @@ ExtismPlugin extism_plugin_new(struct ExtismContext *ctx,
                                const uint8_t *wasm,
                                ExtismSize wasm_size,
                                bool with_wasi);
+
+struct ExtismFunction *extism_plugin_function(const char *name,
+                                              const enum ExtismValType *inputs,
+                                              uint32_t ninputs,
+                                              const enum ExtismValType *outputs,
+                                              uint32_t noutputs,
+                                              void (*func)(const struct ExtismVal *inputs, uint32_t ninputs, struct ExtismVal *outputs, uint32_t noutputs));
+
+/**
+ * Create a new plugin with additional host functions
+ *
+ * `wasm`: is a WASM module (wat or wasm) or a JSON encoded manifest
+ * `wasm_size`: the length of the `wasm` parameter
+ * `with_wasi`: enables/disables WASI
+ */
+ExtismPlugin extism_plugin_new_with_functions(struct ExtismContext *ctx,
+                                              const uint8_t *wasm,
+                                              ExtismSize wasm_size,
+                                              struct ExtismFunction **functions,
+                                              uint32_t nfunctions,
+                                              bool with_wasi);
 
 /**
  * Update a plugin, keeping the existing ID

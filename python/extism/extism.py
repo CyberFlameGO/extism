@@ -11,10 +11,14 @@ class Error(Exception):
     pass
 
 
-_search_dirs = ["/usr/local", "/usr", os.path.join(os.getenv("HOME"), ".local"), "."]
+_search_dirs = [
+    "/usr/local", "/usr",
+    os.path.join(os.getenv("HOME"), ".local"), "."
+]
 
 
 def _check_for_header_and_lib(p):
+
     def _exists(a, *b):
         return os.path.exists(os.path.join(a, *b))
 
@@ -23,18 +27,17 @@ def _check_for_header_and_lib(p):
             return os.path.join(p, "extism.h"), os.path.join(p, "libextism.so")
 
         if _exists(p, "libextism.dylib"):
-            return os.path.join(p, "extism.h"), os.path.join(p, "libextism.dylib")
+            return os.path.join(p, "extism.h"), os.path.join(
+                p, "libextism.dylib")
 
     if _exists(p, "include", "extism.h"):
         if _exists(p, "lib", "libextism.so"):
             return os.path.join(p, "include", "extism.h"), os.path.join(
-                p, "lib", "libextism.so"
-            )
+                p, "lib", "libextism.so")
 
         if _exists(p, "lib", "libextism.dylib"):
             return os.path.join(p, "include", "extism.h"), os.path.join(
-                p, "lib", "libextism.dylib"
-            )
+                p, "lib", "libextism.dylib")
 
 
 def _locate():
@@ -161,7 +164,11 @@ class Context:
         """Remove all registered plugins"""
         _lib.extism_context_reset(self.pointer)
 
-    def plugin(self, manifest: Union[str, bytes, dict], wasi=False, config=None):
+    def plugin(self,
+               manifest: Union[str, bytes, dict],
+               wasi=False,
+               config=None,
+               functions=None):
         """
         Register a new plugin from a WASM module or JSON encoded manifest
 
@@ -173,13 +180,20 @@ class Context:
             Set to `True` to enable WASI support
         config : dict
             The plugin config dictionary
+        functions: list
+            Additional host functions
 
         Returns
         -------
         Plugin
             The created plugin
         """
-        return Plugin(self, manifest, wasi, config)
+        return Plugin(self, manifest, wasi, config, functions)
+
+
+def function(name, args, returns, f):
+    return _lib.extism_plugin_function(name.encode(), args, len(args), returns,
+                                       len(returns), f)
 
 
 class Plugin:
@@ -190,7 +204,12 @@ class Plugin:
     """
 
     def __init__(
-        self, context: Context, plugin: Union[str, bytes, dict], wasi=False, config=None
+        self,
+        context: Context,
+        plugin: Union[str, bytes, dict],
+        wasi=False,
+        config=None,
+        functions=None,
     ):
         """
         Construct a Plugin. Please use Context#plugin instead.
@@ -199,7 +218,13 @@ class Plugin:
         wasm = _wasm(plugin)
 
         # Register plugin
-        self.plugin = _lib.extism_plugin_new(context.pointer, wasm, len(wasm), wasi)
+        if functions is not None:
+            ptr = _ffi.new("ExtismFunction*[]", functions)
+            self.plugin = _lib.extism_plugin_new_with_functions(
+                context.pointer, wasm, len(wasm), ptr, len(functions), wasi)
+        else:
+            self.plugin = _lib.extism_plugin_new(context.pointer, wasm,
+                                                 len(wasm), wasi)
 
         self.ctx = context
 
@@ -213,7 +238,10 @@ class Plugin:
             s = json.dumps(config).encode()
             _lib.extism_plugin_config(self.ctx.pointer, self.plugin, s, len(s))
 
-    def update(self, manifest: Union[str, bytes, dict], wasi=False, config=None):
+    def update(self,
+               manifest: Union[str, bytes, dict],
+               wasi=False,
+               config=None):
         """
         Update a plugin with a new WASM module or manifest
 
@@ -227,9 +255,8 @@ class Plugin:
             The plugin config dictionary
         """
         wasm = _wasm(manifest)
-        ok = _lib.extism_plugin_update(
-            self.ctx.pointer, self.plugin, wasm, len(wasm), wasi
-        )
+        ok = _lib.extism_plugin_update(self.ctx.pointer, self.plugin, wasm,
+                                       len(wasm), wasi)
         if not ok:
             error = _lib.extism_error(self.ctx.pointer, -1)
             if error != _ffi.NULL:
@@ -260,9 +287,8 @@ class Plugin:
         -------
             True if the function exists in the plugin, False otherwise
         """
-        return _lib.extism_plugin_function_exists(
-            self.ctx.pointer, self.plugin, name.encode()
-        )
+        return _lib.extism_plugin_function_exists(self.ctx.pointer,
+                                                  self.plugin, name.encode())
 
     def call(self, function_name: str, data: Union[str, bytes], parse=bytes):
         """
@@ -286,11 +312,10 @@ class Plugin:
         if isinstance(data, str):
             data = data.encode()
         self._check_error(
-            _lib.extism_plugin_call(
-                self.ctx.pointer, self.plugin, function_name.encode(), data, len(data)
-            )
-        )
-        out_len = _lib.extism_plugin_output_length(self.ctx.pointer, self.plugin)
+            _lib.extism_plugin_call(self.ctx.pointer, self.plugin,
+                                    function_name.encode(), data, len(data)))
+        out_len = _lib.extism_plugin_output_length(self.ctx.pointer,
+                                                   self.plugin)
         out_buf = _lib.extism_plugin_output_data(self.ctx.pointer, self.plugin)
         buf = _ffi.buffer(out_buf, out_len)
         if parse is None:
