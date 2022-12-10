@@ -51,6 +51,21 @@ pub enum ExtismValType {
     FuncRef,
 }
 
+#[repr(C)]
+pub union ExtismValUnion {
+    i32: i32,
+    i64: i64,
+    f32: f32,
+    f64: f64,
+    // TODO: v128, ExternRef, FuncRef
+}
+
+#[repr(C)]
+pub struct ExtismVal {
+    t: ExtismValType,
+    v: ExtismValUnion,
+}
+
 impl From<&ExtismValType> for ValType {
     fn from(value: &ExtismValType) -> Self {
         match value {
@@ -65,9 +80,21 @@ impl From<&ExtismValType> for ValType {
     }
 }
 
-pub struct ExtismVal(wasmtime::Val);
-
 pub struct ExtismFunction(Function);
+
+impl From<&wasmtime::Val> for ExtismVal {
+    fn from(value: &wasmtime::Val) -> Self {
+        match value.ty() {
+            wasmtime::ValType::I32 => ExtismVal {
+                t: ExtismValType::I32,
+                v: ExtismValUnion {
+                    i32: value.unwrap_i32(),
+                },
+            },
+            _ => todo!(),
+        }
+    }
+}
 
 #[no_mangle]
 pub unsafe extern "C" fn extism_plugin_function(
@@ -100,8 +127,8 @@ pub unsafe extern "C" fn extism_plugin_function(
         inputs,
         outputs,
         move |_caller, inputs, outputs| {
-            let inputs: Vec<_> = inputs.into_iter().map(|x| ExtismVal(x.clone())).collect();
-            let mut outputs: Vec<_> = outputs.into_iter().map(|x| ExtismVal(x.clone())).collect();
+            let inputs: Vec<_> = inputs.into_iter().map(|x| ExtismVal::from(x)).collect();
+            let mut outputs: Vec<_> = outputs.into_iter().map(|x| ExtismVal::from(&*x)).collect();
             func(
                 inputs.as_ptr(),
                 inputs.len() as u32,
@@ -112,6 +139,11 @@ pub unsafe extern "C" fn extism_plugin_function(
         },
     );
     Box::into_raw(Box::new(ExtismFunction(f)))
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn extism_function_free(ptr: *mut ExtismFunction) {
+    drop(Box::from_raw(ptr))
 }
 
 /// Create a new plugin with additional host functions
@@ -135,7 +167,7 @@ pub unsafe extern "C" fn extism_plugin_new_with_functions(
 
     for i in 0..nfunctions {
         unsafe {
-            let f = Box::from_raw(*functions.add(i as usize));
+            let f = &**functions.add(i as usize);
             funcs.push(f.0.clone());
         }
     }

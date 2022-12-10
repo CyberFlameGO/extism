@@ -1,9 +1,10 @@
 import sys
 import json
 import hashlib
+import requests
 
 sys.path.append(".")
-from extism import Context, function, ffi
+from extism import Context, function, host_fn
 
 if len(sys.argv) > 1:
     data = sys.argv[1].encode()
@@ -11,9 +12,10 @@ else:
     data = b"some data from python!"
 
 
-@ffi.callback("void(ExtismVal*, uint32_t, ExtismVal*, uint32_t)")
-def testing_123(_a, _b, _c, _d):
-    print("AAA")
+@host_fn
+def testing_123(inputs, n_inputs, outputs, n_ouputs):
+    print(inputs[0])
+    print(requests.get("https://example.com").text)
 
 
 # void(*)(ExtismVal *, uint32_t, ExtismVal *, uint32_t)

@@ -20,11 +20,21 @@ typedef struct ExtismContext ExtismContext;
 
 typedef struct ExtismFunction ExtismFunction;
 
-typedef struct ExtismVal ExtismVal;
-
 typedef int32_t ExtismPlugin;
 
 typedef uint64_t ExtismSize;
+
+typedef union ExtismValUnion {
+  int32_t i32;
+  int64_t i64;
+  float f32;
+  double f64;
+} ExtismValUnion;
+
+typedef struct ExtismVal {
+  enum ExtismValType t;
+  union ExtismValUnion v;
+} ExtismVal;
 
 /**
  * Create a new context
@@ -54,6 +64,8 @@ struct ExtismFunction *extism_plugin_function(const char *name,
                                               const enum ExtismValType *outputs,
                                               uint32_t noutputs,
                                               void (*func)(const struct ExtismVal *inputs, uint32_t ninputs, struct ExtismVal *outputs, uint32_t noutputs));
+
+void extism_function_free(struct ExtismFunction *ptr);
 
 /**
  * Create a new plugin with additional host functions

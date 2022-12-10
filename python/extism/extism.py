@@ -335,3 +335,19 @@ class Plugin:
 
     def __exit__(self, type, exc, traceback):
         self.__del__()
+
+
+def host_fn(func):
+
+    def handle_args(inputs, n_inputs, outputs, n_ouputs):
+        inp = []
+        outp = []
+        return func(inputs, outputs)
+
+    return _ffi.callback("void(ExtismVal*, uint32_t, ExtismVal*, uint32_t)",
+                         func)
+
+
+# @ffi.callback("void(ExtismVal*, uint32_t, ExtismVal*, uint32_t)")
+# def testing_123(inputs, n_inputs, outputs, n_ouputs):
+# print(requests.get("https://example.com").text)
