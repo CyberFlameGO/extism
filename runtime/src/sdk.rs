@@ -189,7 +189,7 @@ pub unsafe extern "C" fn extism_active_plugin_free(ctx: *mut Context, ptr: u64) 
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn extism_plugin_function(
+pub unsafe extern "C" fn extism_function(
     name: *const std::ffi::c_char,
     inputs: *const ExtismValType,
     ninputs: u32,

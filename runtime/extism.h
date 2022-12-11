@@ -66,12 +66,12 @@ ExtismSize extism_active_plugin_length(struct ExtismContext *ctx, uint64_t n);
 
 void extism_active_plugin_free(struct ExtismContext *ctx, uint64_t ptr);
 
-struct ExtismFunction *extism_plugin_function(const char *name,
-                                              const enum ExtismValType *inputs,
-                                              uint32_t ninputs,
-                                              const enum ExtismValType *outputs,
-                                              uint32_t noutputs,
-                                              void (*func)(const struct ExtismVal *inputs, uint32_t ninputs, struct ExtismVal *outputs, uint32_t noutputs));
+struct ExtismFunction *extism_function(const char *name,
+                                       const enum ExtismValType *inputs,
+                                       uint32_t ninputs,
+                                       const enum ExtismValType *outputs,
+                                       uint32_t noutputs,
+                                       void (*func)(const struct ExtismVal *inputs, uint32_t ninputs, struct ExtismVal *outputs, uint32_t noutputs));
 
 void extism_function_free(struct ExtismFunction *ptr);
 

@@ -222,7 +222,7 @@ class Function:
         self.pointer = None
         args = [a.value for a in args]
         returns = [r.value for r in returns]
-        self.pointer = _lib.extism_plugin_function(name.encode(), args, len(args), returns,
+        self.pointer = _lib.extism_function(name.encode(), args, len(args), returns,
                                        len(returns), f)
     def __del__(self):
         if self.pointer is not None:
@@ -405,7 +405,7 @@ class ValType(Enum):
 
 
 def host_fn(func):
-    
+
     @_ffi.callback("void(ExtismVal*, uint32_t, ExtismVal*, uint32_t)")
     def handle_args(inputs, n_inputs, outputs, n_outputs):
         inp = []
@@ -416,14 +416,14 @@ def host_fn(func):
         output = func(*inp)
         if output is None:
             return
-       
+
         if n_outputs > 1 and not isinstance(output, list):
             raise Error("Invalid number of return values")
 
         if n_outputs == 1 and not isinstance(output, list):
             _convert_output(outputs[0], output)
             return
-        
+
         for i in range(n_outputs):
             _convert_output(outputs[i], output[i])
 
