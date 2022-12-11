@@ -126,6 +126,14 @@ def _wasm(plugin):
         wasm = plugin
     return wasm
 
+class Memory:
+    def __init__(self, offs, length):
+        self.offset = offs
+        self.length = length
+
+    def __len__(self):
+        return self.length
+
 
 class Context:
     """
@@ -163,6 +171,23 @@ class Context:
     def reset(self):
         """Remove all registered plugins"""
         _lib.extism_context_reset(self.pointer)
+
+    def active_plugin_memory(self, mem: Memory):
+        p = _lib.extism_active_plugin_memory(self.pointer)
+        if p == 0:
+            return None
+        return _ffi.buffer(p + mem.offset, mem.length)
+
+    def active_plugin_alloc(self, n):
+        offs = _lib.extism_active_plugin_alloc(self.pointer, n)
+        return Memory(offs, n)
+
+    def active_plugin_free(self, mem):
+        return _lib.extism_active_plugin_free(self.pointer, mem.offset)
+
+    def active_plugin_memory_from_offset(self, offs):
+        len = _lib.extism_active_plugin_length(self.pointer, offs)
+        return Memory(offs, len)
 
     def plugin(self,
                manifest: Union[str, bytes, dict],
@@ -374,6 +399,7 @@ def host_fn(func):
 
         for i in range(n_inputs):
             inp.append(_convert_input(inputs[i]))
+
         output = func(*inp)
         if output is None:
             return

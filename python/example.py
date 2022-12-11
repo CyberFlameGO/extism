@@ -4,26 +4,26 @@ import hashlib
 import requests
 
 sys.path.append(".")
-from extism import Context, Function, host_fn
+from extism import Context, Function, host_fn, _lib
 
 if len(sys.argv) > 1:
     data = sys.argv[1].encode()
 else:
     data = b"some data from python!"
 
-
-@host_fn
-def testing_123(num):
-    print(num)
-    print(requests.get("https://example.com").text)
-    return num
-
-
 # void(*)(ExtismVal *, uint32_t, ExtismVal *, uint32_t)
 
 # a Context provides a scope for plugins to be managed within. creating multiple contexts
 # is expected and groups plugins based on source/tenant/lifetime etc.
 with Context() as context:
+
+    @host_fn
+    def testing_123(num):
+        mem = context.active_plugin_memory_from_offset(num)
+        print(context.active_plugin_memory(mem)[:])
+        print(requests.get("https://example.com").text)
+        return num
+
     wasm = open("../wasm/code.wasm", "rb").read()
     hash = hashlib.sha256(wasm).hexdigest()
     config = {"wasm": [{"data": wasm, "hash": hash}], "memory": {"max": 5}}

@@ -117,6 +117,78 @@ impl From<&wasmtime::Val> for ExtismVal {
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn extism_active_plugin_memory(ctx: *mut Context) -> *mut u8 {
+    if ctx.is_null() {
+        return std::ptr::null_mut();
+    }
+
+    let ctx = &mut *ctx;
+
+    let plugin = match ctx.active_plugin() {
+        None => return std::ptr::null_mut(),
+        Some(p) => p,
+    };
+
+    plugin.memory.data_mut().as_mut_ptr()
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn extism_active_plugin_alloc(ctx: *mut Context, n: Size) -> u64 {
+    if ctx.is_null() {
+        return 0;
+    }
+
+    let ctx = &mut *ctx;
+
+    let plugin = match ctx.active_plugin() {
+        None => return 0,
+        Some(p) => p,
+    };
+
+    let mem = match plugin.memory.alloc(n as usize) {
+        Ok(x) => x,
+        Err(e) => return plugin.error(e, 0),
+    };
+
+    mem.offset as u64
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn extism_active_plugin_length(ctx: *mut Context, n: u64) -> Size {
+    if ctx.is_null() {
+        return 0;
+    }
+
+    let ctx = &mut *ctx;
+
+    let plugin = match ctx.active_plugin() {
+        None => return 0,
+        Some(p) => p,
+    };
+
+    match plugin.memory.block_length(n as usize) {
+        Some(x) => x as Size,
+        None => 0,
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn extism_active_plugin_free(ctx: *mut Context, ptr: u64) {
+    if ctx.is_null() {
+        return;
+    }
+
+    let ctx = &mut *ctx;
+
+    let plugin = match ctx.active_plugin() {
+        None => return,
+        Some(p) => p,
+    };
+
+    plugin.memory.free(ptr as usize);
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn extism_plugin_function(
     name: *const std::ffi::c_char,
     inputs: *const ExtismValType,
@@ -259,6 +331,7 @@ pub unsafe extern "C" fn extism_plugin_free(ctx: *mut Context, plugin: PluginInd
     trace!("Freeing plugin {plugin}");
 
     let ctx = &mut *ctx;
+    ctx.active_plugin = None;
     ctx.remove(plugin);
 }
 
@@ -272,6 +345,7 @@ pub unsafe extern "C" fn extism_context_reset(ctx: *mut Context) {
         ctx.plugins.keys().collect::<Vec<&i32>>()
     );
 
+    ctx.active_plugin = None;
     ctx.plugins.clear();
 }
 

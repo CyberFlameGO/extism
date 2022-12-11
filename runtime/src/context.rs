@@ -14,6 +14,8 @@ pub struct Context {
     next_id: std::sync::atomic::AtomicI32,
     reclaimed_ids: VecDeque<PluginIndex>,
 
+    pub(crate) active_plugin: Option<*mut Plugin>,
+
     // Timeout thread
     pub(crate) epoch_timer_tx: std::sync::mpsc::SyncSender<TimerAction>,
 }
@@ -49,6 +51,7 @@ impl Context {
             next_id: std::sync::atomic::AtomicI32::new(0),
             reclaimed_ids: VecDeque::new(),
             epoch_timer_tx: tx,
+            active_plugin: None,
         }
     }
 
@@ -137,7 +140,17 @@ impl Context {
 
     /// Get a plugin from the context
     pub fn plugin(&mut self, id: PluginIndex) -> Option<&mut Plugin> {
-        self.plugins.get_mut(&id)
+        match self.plugins.get_mut(&id) {
+            Some(x) => {
+                self.active_plugin = Some(x as *mut _);
+                Some(x)
+            }
+            None => None,
+        }
+    }
+
+    pub fn active_plugin(&self) -> Option<&mut Plugin> {
+        self.active_plugin.map(|x| unsafe { &mut *x })
     }
 
     pub fn plugin_exists(&mut self, id: PluginIndex) -> bool {
