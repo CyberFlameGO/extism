@@ -3,6 +3,7 @@ import os
 from base64 import b64encode
 from cffi import FFI
 from typing import Union
+from enum import Enum
 
 
 class Error(Exception):
@@ -218,10 +219,14 @@ class Context:
 
 class Function:
     def __init__(self, name: str, f, args, returns):
-        self._function = _lib.extism_plugin_function(name.encode(), args, len(args), returns,
+        self.pointer = None
+        args = [a.value for a in args]
+        returns = [r.value for r in returns]
+        self.pointer = _lib.extism_plugin_function(name.encode(), args, len(args), returns,
                                        len(returns), f)
     def __del__(self):
-        _lib.extism_function_free(self._function)
+        if self.pointer is not None:
+            _lib.extism_function_free(self.pointer)
 
 
 class Plugin:
@@ -247,7 +252,7 @@ class Plugin:
 
         # Register plugin
         if functions is not None:
-            functions = [f._function for f in functions]
+            functions = [f.pointer for f in functions]
             ptr = _ffi.new("ExtismFunction*[]", functions)
             self.plugin = _lib.extism_plugin_new_with_functions(
                 context.pointer, wasm, len(wasm), ptr, len(functions), wasi)
@@ -389,6 +394,14 @@ def _convert_output(x, v):
         x.v.f64 = float(v)
     else:
         raise Error("Unsupported return type: " + str(x.t))
+
+class ValType(Enum):
+    I32 = 0
+    I64 = 1
+    F32 = 2
+    F64 = 3
+    FUNC_REF = 4
+    EXTERN_REF = 5
 
 
 def host_fn(func):
