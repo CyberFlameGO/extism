@@ -41,18 +41,6 @@ pub unsafe extern "C" fn extism_plugin_new(
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord)]
-pub enum ExtismValType {
-    I32,
-    I64,
-    F32,
-    F64,
-    V128,
-    FuncRef,
-    ExternRef,
-}
-
-#[repr(C)]
 pub union ExtismValUnion {
     i32: i32,
     i64: i64,
@@ -63,23 +51,8 @@ pub union ExtismValUnion {
 
 #[repr(C)]
 pub struct ExtismVal {
-    t: ExtismValType,
+    t: ValType,
     v: ExtismValUnion,
-}
-
-impl From<&ExtismValType> for ValType {
-    fn from(value: &ExtismValType) -> Self {
-        match value {
-            ExtismValType::I32 => ValType::I32,
-            ExtismValType::I64 => ValType::I64,
-            ExtismValType::F32 => ValType::F32,
-            ExtismValType::F64 => ValType::F64,
-            ExtismValType::V128 => ValType::V128,
-            _ => todo!(),
-            //ExtismValType::ExternRef => ValType::ExternRef,
-            //ExtismValType::FuncRef => ValType::FuncRef,
-        }
-    }
 }
 
 pub struct ExtismFunction(Function);
@@ -88,25 +61,25 @@ impl From<&wasmtime::Val> for ExtismVal {
     fn from(value: &wasmtime::Val) -> Self {
         match value.ty() {
             wasmtime::ValType::I32 => ExtismVal {
-                t: ExtismValType::I32,
+                t: ValType::I32,
                 v: ExtismValUnion {
                     i32: value.unwrap_i32(),
                 },
             },
             wasmtime::ValType::I64 => ExtismVal {
-                t: ExtismValType::I64,
+                t: ValType::I64,
                 v: ExtismValUnion {
                     i64: value.unwrap_i64(),
                 },
             },
             wasmtime::ValType::F32 => ExtismVal {
-                t: ExtismValType::F32,
+                t: ValType::F32,
                 v: ExtismValUnion {
                     f32: value.unwrap_f32(),
                 },
             },
             wasmtime::ValType::F64 => ExtismVal {
-                t: ExtismValType::F64,
+                t: ValType::F64,
                 v: ExtismValUnion {
                     f64: value.unwrap_f64(),
                 },
@@ -191,9 +164,9 @@ pub unsafe extern "C" fn extism_active_plugin_free(ctx: *mut Context, ptr: u64) 
 #[no_mangle]
 pub unsafe extern "C" fn extism_function(
     name: *const std::ffi::c_char,
-    inputs: *const ExtismValType,
+    inputs: *const ValType,
     ninputs: u32,
-    outputs: *const ExtismValType,
+    outputs: *const ValType,
     noutputs: u32,
     func: extern "C" fn(
         inputs: *const ExtismVal,
@@ -202,15 +175,9 @@ pub unsafe extern "C" fn extism_function(
         noutputs: u32,
     ),
 ) -> *mut ExtismFunction {
-    let inputs = std::slice::from_raw_parts(inputs, ninputs as usize)
-        .iter()
-        .map(ValType::from)
-        .collect::<Vec<_>>();
+    let inputs = std::slice::from_raw_parts(inputs, ninputs as usize).to_vec();
     let output_types = std::slice::from_raw_parts(outputs, noutputs as usize).to_vec();
-    let outputs = std::slice::from_raw_parts(outputs, noutputs as usize)
-        .iter()
-        .map(ValType::from)
-        .collect::<Vec<_>>();
+    let outputs = std::slice::from_raw_parts(outputs, noutputs as usize).to_vec();
     let name = match std::ffi::CStr::from_ptr(name).to_str() {
         Ok(x) => x,
         Err(_) => return std::ptr::null_mut(),
@@ -237,10 +204,10 @@ pub unsafe extern "C" fn extism_function(
 
             for (tmp, out) in output_tmp.iter().zip(outputs.iter_mut()) {
                 match tmp.t {
-                    ExtismValType::I32 => *out = Val::I32(tmp.v.i32),
-                    ExtismValType::I64 => *out = Val::I64(tmp.v.i64),
-                    ExtismValType::F32 => *out = Val::F32(tmp.v.f32 as u32),
-                    ExtismValType::F64 => *out = Val::F64(tmp.v.f64 as u64),
+                    ValType::I32 => *out = Val::I32(tmp.v.i32),
+                    ValType::I64 => *out = Val::I64(tmp.v.i64),
+                    ValType::F32 => *out = Val::F32(tmp.v.f32 as u32),
+                    ValType::F64 => *out = Val::F64(tmp.v.f64 as u64),
                     _ => todo!(),
                 }
             }

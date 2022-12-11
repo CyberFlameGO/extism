@@ -2,6 +2,7 @@ use crate::{Error, Internal};
 
 /// A list of all possible value types in WebAssembly.
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
+#[repr(C)]
 pub enum ValType {
     // NB: the ordering here is intended to match the ordering in
     // `wasmtime_types::WasmType` to help improve codegen when converting.

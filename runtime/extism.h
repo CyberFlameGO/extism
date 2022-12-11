@@ -3,13 +3,37 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+/**
+ * A list of all possible value types in WebAssembly.
+ */
 typedef enum ExtismValType {
+  /**
+   * Signed 32 bit integer.
+   */
   I32,
+  /**
+   * Signed 64 bit integer.
+   */
   I64,
+  /**
+   * Floating point 32 bit integer.
+   */
   F32,
+  /**
+   * Floating point 64 bit integer.
+   */
   F64,
+  /**
+   * A 128 bit number.
+   */
   V128,
+  /**
+   * A reference to a Wasm function.
+   */
   FuncRef,
+  /**
+   * A reference to opaque data in the Wasm instance.
+   */
   ExternRef,
 } ExtismValType;
 
