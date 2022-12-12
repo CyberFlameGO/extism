@@ -82,13 +82,13 @@ ExtismPlugin extism_plugin_new(struct ExtismContext *ctx,
                                ExtismSize wasm_size,
                                bool with_wasi);
 
-uint8_t *extism_active_plugin_memory(struct ExtismContext *ctx);
+uint8_t *extism_current_plugin_memory(struct ExtismContext *ctx);
 
-uint64_t extism_active_plugin_alloc(struct ExtismContext *ctx, ExtismSize n);
+uint64_t extism_current_plugin_alloc(struct ExtismContext *ctx, ExtismSize n);
 
-ExtismSize extism_active_plugin_length(struct ExtismContext *ctx, uint64_t n);
+ExtismSize extism_current_plugin_length(struct ExtismContext *ctx, uint64_t n);
 
-void extism_active_plugin_free(struct ExtismContext *ctx, uint64_t ptr);
+void extism_current_plugin_free(struct ExtismContext *ctx, uint64_t ptr);
 
 struct ExtismFunction *extism_function(const char *name,
                                        const enum ExtismValType *inputs,

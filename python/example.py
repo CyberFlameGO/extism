@@ -19,8 +19,9 @@ with Context() as context:
 
     @host_fn
     def testing_123(num):
-        mem = context.active_plugin_memory_from_offset(num)
-        print(context.active_plugin_memory(mem)[:])
+        mem = context.current_plugin_memory_from_offset(num)
+        print("Hello from Python!")
+        print(context.current_plugin_memory(mem)[:])
         print(requests.get("https://example.com").text)
         return num
 

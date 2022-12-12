@@ -127,7 +127,9 @@ def _wasm(plugin):
         wasm = plugin
     return wasm
 
+
 class Memory:
+
     def __init__(self, offs, length):
         self.offset = offs
         self.length = length
@@ -173,21 +175,21 @@ class Context:
         """Remove all registered plugins"""
         _lib.extism_context_reset(self.pointer)
 
-    def active_plugin_memory(self, mem: Memory):
-        p = _lib.extism_active_plugin_memory(self.pointer)
+    def current_plugin_memory(self, mem: Memory):
+        p = _lib.extism_current_plugin_memory(self.pointer)
         if p == 0:
             return None
         return _ffi.buffer(p + mem.offset, mem.length)
 
-    def active_plugin_alloc(self, n):
-        offs = _lib.extism_active_plugin_alloc(self.pointer, n)
+    def current_plugin_alloc(self, n):
+        offs = _lib.extism_current_plugin_alloc(self.pointer, n)
         return Memory(offs, n)
 
-    def active_plugin_free(self, mem):
-        return _lib.extism_active_plugin_free(self.pointer, mem.offset)
+    def current_plugin_free(self, mem):
+        return _lib.extism_current_plugin_free(self.pointer, mem.offset)
 
-    def active_plugin_memory_from_offset(self, offs):
-        len = _lib.extism_active_plugin_length(self.pointer, offs)
+    def current_plugin_memory_from_offset(self, offs):
+        len = _lib.extism_current_plugin_length(self.pointer, offs)
         return Memory(offs, len)
 
     def plugin(self,
@@ -218,12 +220,14 @@ class Context:
 
 
 class Function:
+
     def __init__(self, name: str, f, args, returns):
         self.pointer = None
         args = [a.value for a in args]
         returns = [r.value for r in returns]
-        self.pointer = _lib.extism_function(name.encode(), args, len(args), returns,
-                                       len(returns), f)
+        self.pointer = _lib.extism_function(name.encode(), args, len(args),
+                                            returns, len(returns), f)
+
     def __del__(self):
         if self.pointer is not None:
             _lib.extism_function_free(self.pointer)
@@ -394,6 +398,7 @@ def _convert_output(x, v):
         x.v.f64 = float(v)
     else:
         raise Error("Unsupported return type: " + str(x.t))
+
 
 class ValType(Enum):
     I32 = 0

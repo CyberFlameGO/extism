@@ -1,3 +1,4 @@
+use std::cell::UnsafeCell;
 use std::collections::{BTreeMap, VecDeque};
 
 use crate::*;
@@ -7,14 +8,14 @@ static mut TIMER: std::sync::Mutex<Option<Timer>> = std::sync::Mutex::new(None);
 /// A `Context` is used to store and manage plugins
 pub struct Context {
     /// Plugin registry
-    pub plugins: BTreeMap<PluginIndex, Plugin>,
+    pub plugins: BTreeMap<PluginIndex, UnsafeCell<Plugin>>,
 
     /// Error message
     pub error: Option<std::ffi::CString>,
     next_id: std::sync::atomic::AtomicI32,
     reclaimed_ids: VecDeque<PluginIndex>,
 
-    pub(crate) active_plugin: Option<*mut Plugin>,
+    pub(crate) current_plugin: Option<PluginIndex>,
 
     // Timeout thread
     pub(crate) epoch_timer_tx: std::sync::mpsc::SyncSender<TimerAction>,
@@ -51,7 +52,7 @@ impl Context {
             next_id: std::sync::atomic::AtomicI32::new(0),
             reclaimed_ids: VecDeque::new(),
             epoch_timer_tx: tx,
-            active_plugin: None,
+            current_plugin: None,
         }
     }
 
@@ -93,7 +94,7 @@ impl Context {
                 return -1;
             }
         };
-        self.plugins.insert(id, plugin);
+        self.plugins.insert(id, UnsafeCell::new(plugin));
         id
     }
 
@@ -142,15 +143,19 @@ impl Context {
     pub fn plugin(&mut self, id: PluginIndex) -> Option<&mut Plugin> {
         match self.plugins.get_mut(&id) {
             Some(x) => {
-                self.active_plugin = Some(x as *mut _);
-                Some(x)
+                self.current_plugin = Some(id);
+                Some(x.get_mut())
             }
             None => None,
         }
     }
 
-    pub fn active_plugin(&self) -> Option<&mut Plugin> {
-        self.active_plugin.map(|x| unsafe { &mut *x })
+    pub fn current_plugin(&mut self) -> Option<&mut Plugin> {
+        let index = match self.current_plugin {
+            Some(x) => x,
+            None => return None,
+        };
+        self.plugin(index)
     }
 
     pub fn plugin_exists(&mut self, id: PluginIndex) -> bool {
