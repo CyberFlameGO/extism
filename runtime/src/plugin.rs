@@ -103,7 +103,7 @@ impl Plugin {
     /// Create a new plugin from the given WASM code and imported functions
     pub fn new_with_functions(
         wasm: impl AsRef<[u8]>,
-        imports: impl IntoIterator<Item = Function>,
+        imports: impl IntoIterator<Item = &'static Function>,
         with_wasi: bool,
     ) -> Result<Plugin, Error> {
         let engine = Engine::new(Config::new().epoch_interruption(true))?;

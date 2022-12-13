@@ -92,10 +92,12 @@ void extism_current_plugin_free(struct ExtismContext *ctx, uint64_t ptr);
 
 struct ExtismFunction *extism_function(const char *name,
                                        const enum ExtismValType *inputs,
-                                       uint32_t ninputs,
+                                       ExtismSize ninputs,
                                        const enum ExtismValType *outputs,
-                                       uint32_t noutputs,
-                                       void (*func)(const struct ExtismVal *inputs, uint32_t ninputs, struct ExtismVal *outputs, uint32_t noutputs));
+                                       ExtismSize noutputs,
+                                       void (*func)(const struct ExtismVal *inputs, ExtismSize ninputs, struct ExtismVal *outputs, ExtismSize noutputs, void *data),
+                                       void *user_data,
+                                       void (*free_user_data)(void *_));
 
 void extism_function_free(struct ExtismFunction *ptr);
 

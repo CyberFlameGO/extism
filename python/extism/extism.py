@@ -221,12 +221,15 @@ class Context:
 
 class Function:
 
-    def __init__(self, name: str, f, args, returns):
+    def __init__(self, name: str, f, args, returns, user_data=None):
         self.pointer = None
         args = [a.value for a in args]
         returns = [r.value for r in returns]
-        self.pointer = _lib.extism_function(name.encode(), args, len(args),
-                                            returns, len(returns), f)
+        self.user_data = _ffi.new_handle(user_data)
+        self.pointer = _lib.extism_function(name.encode(),
+                                            args, len(args), returns,
+                                            len(returns), f, self.user_data,
+                                            _ffi.NULL)
 
     def __del__(self):
         if self.pointer is not None:
@@ -411,14 +414,15 @@ class ValType(Enum):
 
 def host_fn(func):
 
-    @_ffi.callback("void(ExtismVal*, uint32_t, ExtismVal*, uint32_t)")
-    def handle_args(inputs, n_inputs, outputs, n_outputs):
+    @_ffi.callback(
+        "void(ExtismVal*, ExtismSize, ExtismVal*, ExtismSize, void*)")
+    def handle_args(inputs, n_inputs, outputs, n_outputs, user_data):
         inp = []
 
         for i in range(n_inputs):
             inp.append(_convert_input(inputs[i]))
 
-        output = func(*inp)
+        output = func(_ffi.from_handle(user_data), *inp)
         if output is None:
             return
 

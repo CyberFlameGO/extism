@@ -165,15 +165,18 @@ pub unsafe extern "C" fn extism_current_plugin_free(ctx: *mut Context, ptr: u64)
 pub unsafe extern "C" fn extism_function(
     name: *const std::ffi::c_char,
     inputs: *const ValType,
-    ninputs: u32,
+    ninputs: Size,
     outputs: *const ValType,
-    noutputs: u32,
+    noutputs: Size,
     func: extern "C" fn(
         inputs: *const ExtismVal,
-        ninputs: u32,
+        ninputs: Size,
         outputs: *mut ExtismVal,
-        noutputs: u32,
+        noutputs: Size,
+        data: *mut std::ffi::c_void,
     ),
+    user_data: *mut std::ffi::c_void,
+    free_user_data: Option<extern "C" fn(_: *mut std::ffi::c_void)>,
 ) -> *mut ExtismFunction {
     let inputs = std::slice::from_raw_parts(inputs, ninputs as usize).to_vec();
     let output_types = std::slice::from_raw_parts(outputs, noutputs as usize).to_vec();
@@ -182,6 +185,8 @@ pub unsafe extern "C" fn extism_function(
         Ok(x) => x,
         Err(_) => return std::ptr::null_mut(),
     };
+    let u = UserData::new(user_data, None);
+    let user_data = UserData::new(user_data, free_user_data);
     let f = Function::new(
         name.to_string(),
         inputs,
@@ -195,11 +200,13 @@ pub unsafe extern "C" fn extism_function(
                     v: ExtismValUnion { i32: 0 },
                 })
                 .collect();
+
             func(
                 inputs.as_ptr(),
-                inputs.len() as u32,
+                inputs.len() as Size,
                 output_tmp.as_mut_ptr(),
-                output_tmp.len() as u32,
+                output_tmp.len() as Size,
+                u.as_ptr(),
             );
 
             for (tmp, out) in output_tmp.iter().zip(outputs.iter_mut()) {
@@ -214,7 +221,7 @@ pub unsafe extern "C" fn extism_function(
             Ok(())
         },
     );
-    Box::into_raw(Box::new(ExtismFunction(f)))
+    Box::into_raw(Box::new(ExtismFunction(f.with_user_data(user_data))))
 }
 
 #[no_mangle]
@@ -244,7 +251,7 @@ pub unsafe extern "C" fn extism_plugin_new_with_functions(
     for i in 0..nfunctions {
         unsafe {
             let f = &**functions.add(i as usize);
-            funcs.push(f.0.clone());
+            funcs.push(&f.0);
         }
     }
     ctx.new_plugin_with_functions(data, funcs, with_wasi)

@@ -110,10 +110,10 @@ impl Context {
         self.insert(plugin)
     }
 
-    pub fn new_plugin_with_functions(
-        &mut self,
+    pub fn new_plugin_with_functions<'a>(
+        &'a mut self,
         data: impl AsRef<[u8]>,
-        imports: impl IntoIterator<Item = Function>,
+        imports: impl IntoIterator<Item = &'static Function>,
         with_wasi: bool,
     ) -> PluginIndex {
         let plugin = match Plugin::new_with_functions(data, imports, with_wasi) {
