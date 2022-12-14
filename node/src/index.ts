@@ -3,21 +3,31 @@ import ref from "ref-napi";
 import path from "path";
 
 var ArrayType = require("ref-array-di")(ref)
+var StructType = require("ref-struct-di")(ref)
+var UnionType = require("ref-union-di")(ref)
 
 const opaque = ref.types.void;
 const context = ref.refType(opaque);
 
 const function_t = ref.refType(opaque);
-
-const valType = ref.types.int;
-const valTypePtr = ref.refType(valType);
-
 const pluginIndex = ref.types.int32;
 
-
-let ValTypeArray = ArrayType('int');
-
+let ValTypeArray = ArrayType(ref.types.int);
 let PtrArray = new ArrayType('void*');
+
+let ValUnion = new UnionType({
+  i32: ref.types.int32,
+  i64: ref.types.int64,
+  f32: ref.types.float,
+  f64: ref.types.double,
+});
+
+let Val = new StructType({
+  t: ref.types.int,
+  v: ValUnion,
+});
+
+let ValArray = ArrayType(Val);
 
 const _functions = {
   extism_context_new: [context, []],
@@ -326,10 +336,23 @@ export class Function {
   outputs: typeof ValTypeArray;
 
   constructor(name: string, inputs: ValType[], outputs: ValType[], f: any, userData?: any) {
-    this.callback = ffi.Callback("void", ["int*", "uint64", "int*", "uint64", "void*"],
-      (inputs, n_inputs, outputs, n_outputs, user_data) => {
-        console.log(inputs, outputs);
-        f()
+    this.callback = ffi.Callback("void", [ValArray, "uint64", ValArray, "uint64", "void*"],
+      (inputs: Buffer, n_inputs, outputs, n_outputs, user_data) => {
+        let inputArr = [];
+        let outputArr = [];
+
+        for (var i = 0; i < n_inputs; i++) {
+          inputArr.push(Val.get(inputs, i));
+        }
+
+
+        for (var i = 0; i < n_outputs; i++) {
+          outputArr.push(Val.get(outputs, i));
+        }
+
+        console.log(inputArr[0].v.i32);
+
+        f(inputArr)
       });
     this.name = name;
     this.inputs = new ValTypeArray(inputs);
