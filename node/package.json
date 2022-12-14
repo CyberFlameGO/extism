@@ -26,7 +26,10 @@
     "test": "jest --coverage"
   },
   "dependencies": {
-    "ffi-napi": "^4.0.3"
+    "@types/ref-array-di": "^1.2.5",
+    "ffi-napi": "^4.0.3",
+    "ref-array-di": "^1.2.2",
+    "ref-napi": "^3.0.3"
   },
   "publishConfig": {
     "access": "public"

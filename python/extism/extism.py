@@ -229,10 +229,9 @@ class Function:
             self.user_data = _ffi.new_handle(user_data)
         else:
             self.user_data = _ffi.NULL
-        self.pointer = _lib.extism_function(name.encode(),
-                                            args, len(args), returns,
-                                            len(returns), f, self.user_data,
-                                            _ffi.NULL)
+        self.pointer = _lib.extism_function_new(name.encode(), args, len(args),
+                                                returns, len(returns), f,
+                                                self.user_data, _ffi.NULL)
 
     def __del__(self):
         if self.pointer is not None:

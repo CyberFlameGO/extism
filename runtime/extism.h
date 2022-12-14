@@ -90,14 +90,14 @@ ExtismSize extism_current_plugin_length(struct ExtismContext *ctx, uint64_t n);
 
 void extism_current_plugin_free(struct ExtismContext *ctx, uint64_t ptr);
 
-struct ExtismFunction *extism_function(const char *name,
-                                       const enum ExtismValType *inputs,
-                                       ExtismSize n_inputs,
-                                       const enum ExtismValType *outputs,
-                                       ExtismSize n_outputs,
-                                       void (*func)(const struct ExtismVal *inputs, ExtismSize ninputs, struct ExtismVal *outputs, ExtismSize noutputs, void *data),
-                                       void *user_data,
-                                       void (*free_user_data)(void *_));
+struct ExtismFunction *extism_function_new(const char *name,
+                                           const enum ExtismValType *inputs,
+                                           ExtismSize n_inputs,
+                                           const enum ExtismValType *outputs,
+                                           ExtismSize n_outputs,
+                                           void (*func)(const struct ExtismVal *inputs, ExtismSize ninputs, struct ExtismVal *outputs, ExtismSize noutputs, void *data),
+                                           void *user_data,
+                                           void (*free_user_data)(void *_));
 
 void extism_function_free(struct ExtismFunction *ptr);
 
@@ -128,6 +128,22 @@ bool extism_plugin_update(struct ExtismContext *ctx,
                           const uint8_t *wasm,
                           ExtismSize wasm_size,
                           bool with_wasi);
+
+/**
+ * Update a plugin including host functions, keeping the existing ID
+ *
+ * Similar to `extism_plugin_new` but takes an `index` argument to specify
+ * which plugin to update
+ *
+ * Memory for this plugin will be reset upon update
+ */
+bool extism_plugin_update_with_functions(struct ExtismContext *ctx,
+                                         ExtismPlugin index,
+                                         const uint8_t *wasm,
+                                         ExtismSize wasm_size,
+                                         const struct ExtismFunction *const *functions,
+                                         uint32_t nfunctions,
+                                         bool with_wasi);
 
 /**
  * Remove a plugin from the registry and free associated memory

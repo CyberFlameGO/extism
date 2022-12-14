@@ -1,16 +1,20 @@
 import ffi from "ffi-napi";
+import ref from "ref-napi";
 import path from "path";
+
+var ArrayType = require("ref-array-di")(ref)
 
 const context = "void*";
 const _functions = {
   extism_context_new: [context, []],
   extism_context_free: ["void", [context]],
   extism_plugin_new: ["int32", [context, "string", "uint64", "bool"]],
+  extism_plugin_new_with_functions: ["int32", [context, "string", "uint64", "void**", "uint64", "bool"]],
   extism_plugin_update: [
     "bool",
     [context, "int32", "string", "uint64", "bool"],
   ],
-  extism_error: ["char*", [context, "int32"]],
+  extism_error: ["string", [context, "int32"]],
   extism_plugin_call: [
     "int32",
     [context, "int32", "string", "string", "uint64"],
@@ -22,8 +26,18 @@ const _functions = {
   extism_plugin_config: ["void", [context, "int32", "char*", "uint64"]],
   extism_plugin_free: ["void", [context, "int32"]],
   extism_context_reset: ["void", [context]],
-  extism_version: ["char*", []],
+  extism_version: ["string", []],
+  extism_function_new: ["pointer", ["string", "pointer", "uint64", "pointer", "uint64", "pointer", "pointer", "pointer"]],
 };
+
+export enum ValType {
+  I32 = 0,
+  I64,
+  F32,
+  F64,
+  FuncRef,
+  ExternRef
+}
 
 interface LibExtism {
   extism_context_new: () => Buffer;
@@ -34,6 +48,14 @@ interface LibExtism {
     data_len: number,
     wasi: boolean
   ) => number;
+  extism_plugin_new_with_functions: (
+    ctx: Buffer,
+    data: string | Buffer,
+    data_len: number,
+    functions: Buffer,
+    nfunctions: number,
+    wasi: boolean
+  ) => number;
   extism_plugin_update: (
     ctx: Buffer,
     plugin_id: number,
@@ -41,7 +63,7 @@ interface LibExtism {
     data_len: number,
     wasi: boolean
   ) => boolean;
-  extism_error: (ctx: Buffer, plugin_id: number) => Buffer;
+  extism_error: (ctx: Buffer, plugin_id: number) => string;
   extism_plugin_call: (
     ctx: Buffer,
     plugin_id: number,
@@ -65,7 +87,18 @@ interface LibExtism {
   ) => void;
   extism_plugin_free: (ctx: Buffer, plugin_id: number) => void;
   extism_context_reset: (ctx: Buffer) => void;
-  extism_version: () => Buffer;
+  extism_version: () => string;
+  extism_function_new: (
+    name: string,
+    inputs: Buffer,
+    nInputs: number,
+    outputs: Buffer,
+    nOutputs: number,
+    f: Buffer,
+    user_data: Buffer | null,
+    free: Buffer | null
+  ) => Buffer;
+  extism_function_free: (f: Buffer) => void;
 }
 
 function locate(paths: string[]): LibExtism {
@@ -110,7 +143,7 @@ export function setLogFile(filename: string, level?: string) {
  * @returns The version string of the Extism runtime
  */
 export function extismVersion(): string {
-  return lib.extism_version().toString();
+  return lib.extism_version();
 }
 
 // @ts-ignore
@@ -225,8 +258,8 @@ export class Context {
    * @param config - Config details for the plugin
    * @returns A new Plugin scoped to this Context
    */
-  plugin(manifest: ManifestData, wasi: boolean = false, config?: PluginConfig) {
-    return new Plugin(this, manifest, wasi, config);
+  plugin(manifest: ManifestData, wasi: boolean = false, functions: Function[] = [], config?: PluginConfig) {
+    return new Plugin(this, manifest, wasi, functions, config);
   }
 
   /**
@@ -268,12 +301,44 @@ export async function withContext(f: (ctx: Context) => Promise<any>) {
   }
 }
 
+export class Function {
+  callback: any;
+  ptr: Buffer;
+  name: string;
+  userData: Buffer;
+  inputs: Buffer;
+  outputs: Buffer;
+
+  constructor(name: string, inputs: ValType[], outputs: ValType[], f: any, userData?: any) {
+    this.callback = ffi.Callback("void", ["int*", "uint64", "int*", "uint64", "void*"],
+      (inputs, n_inputs, outputs, n_outputs, user_data) => {
+        f()
+      });
+    this.name = name;
+    this.inputs = Buffer.from(inputs);
+    this.outputs = Buffer.from(outputs);
+    this.ptr = lib.extism_function_new(
+      this.name,
+      this.inputs,
+      inputs.length,
+      this.outputs,
+      outputs.length,
+      this.callback,
+      null, null
+    );
+    this.userData = userData;
+  }
+}
+
+let PtrArray = new ArrayType('void*');
+
 /**
  * A Plugin represents an instance of your WASM program from the given manifest.
  */
 export class Plugin {
   id: number;
   ctx: Context;
+  functions: typeof PtrArray;
 
   /**
    * Constructor for a plugin. @see {@link Context#plugin}.
@@ -287,6 +352,7 @@ export class Plugin {
     ctx: Context,
     manifest: ManifestData,
     wasi: boolean = false,
+    functions: Function[] = [],
     config?: PluginConfig
   ) {
     let dataRaw: string | Buffer;
@@ -298,10 +364,16 @@ export class Plugin {
       throw Error(`Unknown manifest type ${typeof manifest}`);
     }
     if (!ctx.pointer) throw Error("No Context set");
-    let plugin = lib.extism_plugin_new(
+    this.functions = new PtrArray(functions.length);
+    for (var i = 0; i < functions.length; i++) {
+      this.functions[i] = functions[i].ptr;
+    }
+    let plugin = lib.extism_plugin_new_with_functions(
       ctx.pointer,
       dataRaw,
       Buffer.byteLength(dataRaw, 'utf-8'),
+      this.functions[0].ref(),
+      functions.length,
       wasi
     );
     if (plugin < 0) {
@@ -434,3 +506,4 @@ export class Plugin {
     }
   }
 }
+

@@ -162,7 +162,7 @@ pub unsafe extern "C" fn extism_current_plugin_free(ctx: *mut Context, ptr: u64)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn extism_function(
+pub unsafe extern "C" fn extism_function_new(
     name: *const std::ffi::c_char,
     inputs: *const ValType,
     n_inputs: Size,
@@ -194,8 +194,11 @@ pub unsafe extern "C" fn extism_function(
 
     let name = match std::ffi::CStr::from_ptr(name).to_str() {
         Ok(x) => x,
-        Err(_) => return std::ptr::null_mut(),
+        Err(_) => {
+            return std::ptr::null_mut();
+        }
     };
+
     let u = UserData::new(user_data, None);
     let user_data = UserData::new(user_data, free_user_data);
     let f = Function::new(
@@ -259,10 +262,16 @@ pub unsafe extern "C" fn extism_plugin_new_with_functions(
     let data = std::slice::from_raw_parts(wasm, wasm_size as usize);
     let mut funcs = vec![];
 
-    for i in 0..nfunctions {
-        unsafe {
-            let f = &**functions.add(i as usize);
-            funcs.push(&f.0);
+    if !functions.is_null() {
+        for i in 0..nfunctions {
+            unsafe {
+                let f = *functions.add(i as usize);
+                if f.is_null() {
+                    continue;
+                }
+                let f = &*f;
+                funcs.push(&f.0);
+            }
         }
     }
     ctx.new_plugin_with_functions(data, funcs, with_wasi)
@@ -282,11 +291,49 @@ pub unsafe extern "C" fn extism_plugin_update(
     wasm_size: Size,
     with_wasi: bool,
 ) -> bool {
-    trace!("Call to extism_plugin_update with wasm pointer {:?}", wasm);
+    extism_plugin_update_with_functions(ctx, index, wasm, wasm_size, std::ptr::null(), 0, with_wasi)
+}
+
+/// Update a plugin including host functions, keeping the existing ID
+///
+/// Similar to `extism_plugin_new` but takes an `index` argument to specify
+/// which plugin to update
+///
+/// Memory for this plugin will be reset upon update
+#[no_mangle]
+pub unsafe extern "C" fn extism_plugin_update_with_functions(
+    ctx: *mut Context,
+    index: PluginIndex,
+    wasm: *const u8,
+    wasm_size: Size,
+    functions: *const *const ExtismFunction,
+    nfunctions: u32,
+    with_wasi: bool,
+) -> bool {
+    trace!(
+        "Call to extism_plugin_update_with_functions with wasm pointer {:?}",
+        wasm
+    );
     let ctx = &mut *ctx;
 
     let data = std::slice::from_raw_parts(wasm, wasm_size as usize);
-    let plugin = match Plugin::new(data, with_wasi) {
+
+    let mut funcs = vec![];
+
+    if !functions.is_null() {
+        for i in 0..nfunctions {
+            unsafe {
+                let f = *functions.add(i as usize);
+                if f.is_null() {
+                    continue;
+                }
+                let f = &*f;
+                funcs.push(&f.0);
+            }
+        }
+    }
+
+    let plugin = match Plugin::new_with_functions(data, funcs, with_wasi) {
         Ok(x) => x,
         Err(e) => {
             error!("Error creating Plugin: {:?}", e);
