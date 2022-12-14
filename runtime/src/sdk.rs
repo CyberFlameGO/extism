@@ -178,16 +178,13 @@ pub unsafe extern "C" fn extism_function_new(
     user_data: *mut std::ffi::c_void,
     free_user_data: Option<extern "C" fn(_: *mut std::ffi::c_void)>,
 ) -> *mut ExtismFunction {
-    println!("BEFORE NAME {name:?}");
     let name = match std::ffi::CStr::from_ptr(name).to_str() {
         Ok(x) => x.to_string(),
         Err(_) => {
             return std::ptr::null_mut();
         }
     };
-    println!("AFTER NAME");
 
-    println!("BEFORE INPUTS: {inputs:?} {:?}", *(inputs as *const u32));
     let inputs = if inputs.is_null() || n_inputs == 0 {
         &[]
     } else {
@@ -195,21 +192,11 @@ pub unsafe extern "C" fn extism_function_new(
     }
     .to_vec();
 
-    println!("INPUTS: {inputs:?}");
-
-    println!("BEFORE OUTPUTS: {outputs:?} {:?}", *outputs);
     let output_types = if outputs.is_null() || n_outputs == 0 {
         &[]
     } else {
-        let x = std::slice::from_raw_parts(outputs, n_outputs as usize);
-        println!("OUTPUTS: {x:?}");
-        x
+        std::slice::from_raw_parts(outputs, n_outputs as usize)
     };
-
-    println!(
-        "FUNC {} {:?} {:?} {:?}",
-        name, inputs, output_types, user_data
-    );
 
     let u = UserData::new(user_data, None);
     let user_data = UserData::new(user_data, free_user_data);
