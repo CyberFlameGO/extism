@@ -13,12 +13,12 @@ else:
 
 
 @host_fn
-def testing_123(context, num):
-    mem = context.current_plugin_memory_from_offset(num)
+def testing_123(input, context):
+    mem = context.current_plugin_memory_from_offset(input[0])
     print("Hello from Python!")
     print(context.current_plugin_memory(mem)[:])
     print(requests.get("https://example.com").text)
-    return num
+    return input[0]
 
 
 # a Context provides a scope for plugins to be managed within. creating multiple contexts

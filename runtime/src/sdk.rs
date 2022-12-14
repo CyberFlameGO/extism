@@ -165,9 +165,9 @@ pub unsafe extern "C" fn extism_current_plugin_free(ctx: *mut Context, ptr: u64)
 pub unsafe extern "C" fn extism_function(
     name: *const std::ffi::c_char,
     inputs: *const ValType,
-    ninputs: Size,
+    n_inputs: Size,
     outputs: *const ValType,
-    noutputs: Size,
+    n_outputs: Size,
     func: extern "C" fn(
         inputs: *const ExtismVal,
         ninputs: Size,
@@ -178,9 +178,20 @@ pub unsafe extern "C" fn extism_function(
     user_data: *mut std::ffi::c_void,
     free_user_data: Option<extern "C" fn(_: *mut std::ffi::c_void)>,
 ) -> *mut ExtismFunction {
-    let inputs = std::slice::from_raw_parts(inputs, ninputs as usize).to_vec();
-    let output_types = std::slice::from_raw_parts(outputs, noutputs as usize).to_vec();
-    let outputs = std::slice::from_raw_parts(outputs, noutputs as usize).to_vec();
+    let inputs = if inputs.is_null() || n_inputs == 0 {
+        &[]
+    } else {
+        std::slice::from_raw_parts(inputs, n_inputs as usize)
+    }
+    .to_vec();
+
+    let output_types = if outputs.is_null() || n_outputs == 0 {
+        &[]
+    } else {
+        std::slice::from_raw_parts(outputs, n_outputs as usize)
+    }
+    .to_vec();
+
     let name = match std::ffi::CStr::from_ptr(name).to_str() {
         Ok(x) => x,
         Err(_) => return std::ptr::null_mut(),
@@ -190,7 +201,7 @@ pub unsafe extern "C" fn extism_function(
     let f = Function::new(
         name.to_string(),
         inputs,
-        outputs,
+        output_types.clone(),
         move |_caller, inputs, outputs| {
             let inputs: Vec<_> = inputs.into_iter().map(ExtismVal::from).collect();
             let mut output_tmp: Vec<_> = output_types

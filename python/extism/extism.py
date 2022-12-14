@@ -225,7 +225,10 @@ class Function:
         self.pointer = None
         args = [a.value for a in args]
         returns = [r.value for r in returns]
-        self.user_data = _ffi.new_handle(user_data)
+        if user_data is not None:
+            self.user_data = _ffi.new_handle(user_data)
+        else:
+            self.user_data = _ffi.NULL
         self.pointer = _lib.extism_function(name.encode(),
                                             args, len(args), returns,
                                             len(returns), f, self.user_data,
@@ -422,7 +425,12 @@ def host_fn(func):
         for i in range(n_inputs):
             inp.append(_convert_input(inputs[i]))
 
-        output = func(_ffi.from_handle(user_data), *inp)
+        if user_data == _ffi.NULL:
+            output = func(inp)
+        else:
+            udata = _ffi.from_handle(user_data)
+            output = func(inp, udata)
+
         if output is None:
             return
 
