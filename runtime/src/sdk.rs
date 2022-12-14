@@ -187,7 +187,7 @@ pub unsafe extern "C" fn extism_function_new(
     };
     println!("AFTER NAME");
 
-    println!("BEFORE INPUTS");
+    println!("BEFORE INPUTS: {inputs:?} {:?}", *(inputs as *const u32));
     let inputs = if inputs.is_null() || n_inputs == 0 {
         &[]
     } else {
@@ -195,14 +195,14 @@ pub unsafe extern "C" fn extism_function_new(
     }
     .to_vec();
 
-    println!("BEFORE OUTPUTS: {outputs:?} {n_outputs}");
+    println!("INPUTS: {inputs:?}");
+
+    println!("BEFORE OUTPUTS: {outputs:?} {:?}", *outputs);
     let output_types = if outputs.is_null() || n_outputs == 0 {
         &[]
     } else {
         let x = std::slice::from_raw_parts(outputs, n_outputs as usize);
-        println!("AAA");
-
-        println!("BEFORE OUTPUTS: {outputs:?} {n_outputs}");
+        println!("OUTPUTS: {x:?}");
         x
     };
 

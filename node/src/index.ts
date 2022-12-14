@@ -4,30 +4,45 @@ import path from "path";
 
 var ArrayType = require("ref-array-di")(ref)
 
-const context = "void*";
+const opaque = ref.types.void;
+const context = ref.refType(opaque);
+
+const function_t = ref.refType(opaque);
+
+const valType = ref.types.int;
+const valTypePtr = ref.refType(valType);
+
+const pluginIndex = ref.types.int32;
+
+
+let ValTypeArray = ArrayType('int');
+
+let PtrArray = new ArrayType('void*');
+
 const _functions = {
   extism_context_new: [context, []],
   extism_context_free: ["void", [context]],
-  extism_plugin_new: ["int32", [context, "string", "uint64", "bool"]],
-  extism_plugin_new_with_functions: ["int32", [context, "string", "uint64", "void**", "uint64", "bool"]],
+  extism_plugin_new: [pluginIndex, [context, "string", "uint64", "bool"]],
+  extism_plugin_new_with_functions: [pluginIndex, [context, "string", "uint64", PtrArray, "uint64", "bool"]],
   extism_plugin_update: [
     "bool",
-    [context, "int32", "string", "uint64", "bool"],
+    [context, pluginIndex, "string", "uint64", "bool"],
   ],
-  extism_error: ["string", [context, "int32"]],
+  extism_error: ["string", [context, pluginIndex]],
   extism_plugin_call: [
     "int32",
-    [context, "int32", "string", "string", "uint64"],
+    [context, pluginIndex, "string", "string", "uint64"],
   ],
-  extism_plugin_output_length: ["uint64", [context, "int32"]],
-  extism_plugin_output_data: ["uint8*", [context, "int32"]],
+  extism_plugin_output_length: ["uint64", [context, pluginIndex]],
+  extism_plugin_output_data: ["uint8*", [context, pluginIndex]],
   extism_log_file: ["bool", ["string", "char*"]],
-  extism_plugin_function_exists: ["bool", [context, "int32", "string"]],
-  extism_plugin_config: ["void", [context, "int32", "char*", "uint64"]],
-  extism_plugin_free: ["void", [context, "int32"]],
+  extism_plugin_function_exists: ["bool", [context, pluginIndex, "string"]],
+  extism_plugin_config: ["void", [context, pluginIndex, "char*", "uint64"]],
+  extism_plugin_free: ["void", [context, pluginIndex]],
   extism_context_reset: ["void", [context]],
   extism_version: ["string", []],
-  extism_function_new: ["pointer", ["string", "uint32*", "uint64", "uint32*", "uint64", "pointer", "pointer", "pointer"]],
+  extism_function_new: [function_t, ["string", ValTypeArray, "uint64", ValTypeArray, "uint64", "void*", "void*", "void*"]],
+  extism_function_free: ["void", [function_t]],
 };
 
 export enum ValType {
@@ -301,7 +316,6 @@ export async function withContext(f: (ctx: Context) => Promise<any>) {
   }
 }
 
-let ValTypeArray = ArrayType('uint32');
 
 export class Function {
   callback: any;
@@ -312,18 +326,19 @@ export class Function {
   outputs: typeof ValTypeArray;
 
   constructor(name: string, inputs: ValType[], outputs: ValType[], f: any, userData?: any) {
-    this.callback = ffi.Callback("void", ["uint32*", "uint64", "uint32*", "uint64", "void*"],
+    this.callback = ffi.Callback("void", ["int*", "uint64", "int*", "uint64", "void*"],
       (inputs, n_inputs, outputs, n_outputs, user_data) => {
+        console.log(inputs, outputs);
         f()
       });
-    this.name = name + "\0";
+    this.name = name;
     this.inputs = new ValTypeArray(inputs);
     this.outputs = new ValTypeArray(outputs);
     this.ptr = lib.extism_function_new(
       this.name,
-      Buffer.from(this.inputs),
+      this.inputs,
       this.inputs.length,
-      Buffer.from(this.outputs),
+      this.outputs,
       this.outputs.length,
       this.callback,
       null, null
@@ -331,8 +346,6 @@ export class Function {
     this.userData = userData;
   }
 }
-
-let PtrArray = new ArrayType('void*');
 
 /**
  * A Plugin represents an instance of your WASM program from the given manifest.
@@ -374,7 +387,7 @@ export class Plugin {
       ctx.pointer,
       dataRaw,
       Buffer.byteLength(dataRaw, 'utf-8'),
-      this.functions[0].ref(),
+      this.functions,
       functions.length,
       wasi
     );
