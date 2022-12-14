@@ -170,14 +170,24 @@ pub unsafe extern "C" fn extism_function_new(
     n_outputs: Size,
     func: extern "C" fn(
         inputs: *const ExtismVal,
-        ninputs: Size,
+        n_inputs: Size,
         outputs: *mut ExtismVal,
-        noutputs: Size,
+        n_outputs: Size,
         data: *mut std::ffi::c_void,
     ),
     user_data: *mut std::ffi::c_void,
     free_user_data: Option<extern "C" fn(_: *mut std::ffi::c_void)>,
 ) -> *mut ExtismFunction {
+    println!("BEFORE NAME {name:?}");
+    let name = match std::ffi::CStr::from_ptr(name).to_str() {
+        Ok(x) => x.to_string(),
+        Err(_) => {
+            return std::ptr::null_mut();
+        }
+    };
+    println!("AFTER NAME");
+
+    println!("BEFORE INPUTS");
     let inputs = if inputs.is_null() || n_inputs == 0 {
         &[]
     } else {
@@ -185,26 +195,28 @@ pub unsafe extern "C" fn extism_function_new(
     }
     .to_vec();
 
+    println!("BEFORE OUTPUTS: {outputs:?} {n_outputs}");
     let output_types = if outputs.is_null() || n_outputs == 0 {
         &[]
     } else {
-        std::slice::from_raw_parts(outputs, n_outputs as usize)
-    }
-    .to_vec();
+        let x = std::slice::from_raw_parts(outputs, n_outputs as usize);
+        println!("AAA");
 
-    let name = match std::ffi::CStr::from_ptr(name).to_str() {
-        Ok(x) => x,
-        Err(_) => {
-            return std::ptr::null_mut();
-        }
+        println!("BEFORE OUTPUTS: {outputs:?} {n_outputs}");
+        x
     };
+
+    println!(
+        "FUNC {} {:?} {:?} {:?}",
+        name, inputs, output_types, user_data
+    );
 
     let u = UserData::new(user_data, None);
     let user_data = UserData::new(user_data, free_user_data);
     let f = Function::new(
-        name.to_string(),
+        name,
         inputs,
-        output_types.clone(),
+        output_types.to_vec(),
         move |_caller, inputs, outputs| {
             let inputs: Vec<_> = inputs.into_iter().map(ExtismVal::from).collect();
             let mut output_tmp: Vec<_> = output_types

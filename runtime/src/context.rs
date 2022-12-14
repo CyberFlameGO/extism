@@ -140,7 +140,7 @@ impl Context {
     }
 
     /// Get a plugin from the context
-    pub fn plugin(&mut self, id: PluginIndex) -> Option<&mut Plugin> {
+    pub fn plugin(&mut self, id: PluginIndex) -> Option<*mut Plugin> {
         match self.plugins.get_mut(&id) {
             Some(x) => {
                 self.current_plugin = Some(id);
@@ -155,7 +155,7 @@ impl Context {
             Some(x) => x,
             None => return None,
         };
-        self.plugin(index)
+        unsafe { self.plugin(index).map(|x| &mut *x) }
     }
 
     pub fn plugin_exists(&mut self, id: PluginIndex) -> bool {

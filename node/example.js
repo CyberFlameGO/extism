@@ -1,9 +1,11 @@
 const { withContext, Context, Function, ValType } = require('./dist/index.js');
 const { readFileSync } = require('fs');
 
-let testing_123 = new Function("testing_123", [ValType.I64], [ValType.I64], () => {
+function f() {
   console.log("Hello from Javascript!");
-});
+}
+
+let testing_123 = new Function("testing_123", [ValType.I64], [ValType.I64], f);
 
 withContext(async function(context) {
   let wasm = readFileSync("../wasm/code.wasm");

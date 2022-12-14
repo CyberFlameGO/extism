@@ -27,7 +27,7 @@ const _functions = {
   extism_plugin_free: ["void", [context, "int32"]],
   extism_context_reset: ["void", [context]],
   extism_version: ["string", []],
-  extism_function_new: ["pointer", ["string", "pointer", "uint64", "pointer", "uint64", "pointer", "pointer", "pointer"]],
+  extism_function_new: ["pointer", ["string", "uint32*", "uint64", "uint32*", "uint64", "pointer", "pointer", "pointer"]],
 };
 
 export enum ValType {
@@ -301,28 +301,30 @@ export async function withContext(f: (ctx: Context) => Promise<any>) {
   }
 }
 
+let ValTypeArray = ArrayType('uint32');
+
 export class Function {
   callback: any;
   ptr: Buffer;
   name: string;
   userData: Buffer;
-  inputs: Buffer;
-  outputs: Buffer;
+  inputs: typeof ValTypeArray;
+  outputs: typeof ValTypeArray;
 
   constructor(name: string, inputs: ValType[], outputs: ValType[], f: any, userData?: any) {
-    this.callback = ffi.Callback("void", ["int*", "uint64", "int*", "uint64", "void*"],
+    this.callback = ffi.Callback("void", ["uint32*", "uint64", "uint32*", "uint64", "void*"],
       (inputs, n_inputs, outputs, n_outputs, user_data) => {
         f()
       });
-    this.name = name;
-    this.inputs = Buffer.from(inputs);
-    this.outputs = Buffer.from(outputs);
+    this.name = name + "\0";
+    this.inputs = new ValTypeArray(inputs);
+    this.outputs = new ValTypeArray(outputs);
     this.ptr = lib.extism_function_new(
       this.name,
-      this.inputs,
-      inputs.length,
-      this.outputs,
-      outputs.length,
+      Buffer.from(this.inputs),
+      this.inputs.length,
+      Buffer.from(this.outputs),
+      this.outputs.length,
       this.callback,
       null, null
     );

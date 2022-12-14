@@ -95,7 +95,7 @@ struct ExtismFunction *extism_function_new(const char *name,
                                            ExtismSize n_inputs,
                                            const enum ExtismValType *outputs,
                                            ExtismSize n_outputs,
-                                           void (*func)(const struct ExtismVal *inputs, ExtismSize ninputs, struct ExtismVal *outputs, ExtismSize noutputs, void *data),
+                                           void (*func)(const struct ExtismVal *inputs, ExtismSize n_inputs, struct ExtismVal *outputs, ExtismSize n_outputs, void *data),
                                            void *user_data,
                                            void (*free_user_data)(void *_));
 
