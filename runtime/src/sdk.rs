@@ -196,14 +196,15 @@ pub unsafe extern "C" fn extism_function_new(
         &[]
     } else {
         std::slice::from_raw_parts(outputs, n_outputs as usize)
-    };
+    }
+    .to_vec();
 
     let u = UserData::new(user_data, None);
     let user_data = UserData::new(user_data, free_user_data);
     let f = Function::new(
         name,
         inputs,
-        output_types.to_vec(),
+        output_types.clone(),
         move |_caller, inputs, outputs| {
             let inputs: Vec<_> = inputs.into_iter().map(ExtismVal::from).collect();
             let mut output_tmp: Vec<_> = output_types
