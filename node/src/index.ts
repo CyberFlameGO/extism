@@ -349,10 +349,17 @@ export class Function {
         for (var i = 0; i < n_outputs; i++) {
           outputArr.push(Val.get(outputs, i));
         }
+        
+        let out = f(inputArr);
 
-        console.log(inputArr[0].v.i32);
+        if (!Array.isArray(out)){
+          outputs[0] = out;
+          return;
+        }
 
-        f(inputArr)
+        for (var i = 0; i < n_outputs; i++){
+          outputs[i] = out[i];
+        }  
       });
     this.name = name;
     this.inputs = new ValTypeArray(inputs);

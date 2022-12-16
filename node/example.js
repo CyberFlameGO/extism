@@ -1,8 +1,9 @@
 const { withContext, Context, Function, ValType } = require('./dist/index.js');
 const { readFileSync } = require('fs');
 
-function f() {
+function f(inputs) {
   console.log("Hello from Javascript!");
+  return inputs[0];
 }
 
 let testing_123 = new Function("testing_123", [ValType.I64], [ValType.I64], f);
