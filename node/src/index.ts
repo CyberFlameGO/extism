@@ -16,8 +16,8 @@ let ValTypeArray = ArrayType(ref.types.int);
 let PtrArray = new ArrayType('void*');
 
 let ValUnion = new UnionType({
-  i32: ref.types.int32,
-  i64: ref.types.int64,
+  i32: ref.types.uint32,
+  i64: ref.types.uint64,
   f32: ref.types.float,
   f64: ref.types.double,
 });
@@ -337,7 +337,7 @@ export class Function {
 
   constructor(name: string, inputs: ValType[], outputs: ValType[], f: any, userData?: any) {
     this.callback = ffi.Callback("void", [ValArray, "uint64", ValArray, "uint64", "void*"],
-      (inputs: Buffer, n_inputs, outputs, n_outputs, user_data) => {
+      (inputs: Buffer, n_inputs, outputs: Buffer, n_outputs, user_data) => {
         let inputArr = [];
         let outputArr = [];
 

@@ -9,9 +9,10 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-void testing_123(const struct ExtismVal *inputs, uint32_t n_inputs,
-                 struct ExtismVal *outputs, uint32_t n_outputs) {
+void testing_123(const struct ExtismVal *inputs, uint64_t n_inputs,
+                 struct ExtismVal *outputs, uint64_t n_outputs, void *data) {
   puts("Hello from C!");
+  puts((char *)data);
   outputs[0].v.i64 = inputs[0].v.i64;
 }
 
@@ -49,10 +50,12 @@ int main(int argc, char *argv[]) {
   uint8_t *data = read_file("../wasm/code.wasm", &len);
   ExtismValType inputs[] = {I64};
   ExtismValType outputs[] = {I64};
-  const ExtismFunction *f =
-      extism_function("testing_123", inputs, 1, outputs, 1, testing_123);
+  ExtismFunction *f =
+      extism_function_new("testing_123", inputs, 1, outputs, 1, testing_123,
+                          (void *)"Hello, again!", NULL);
+  const ExtismFunction *functions[] = {f};
   ExtismPlugin plugin =
-      extism_plugin_new_with_functions(ctx, data, len, &f, 1, true);
+      extism_plugin_new_with_functions(ctx, data, len, functions, 1, true);
   free(data);
   if (plugin < 0) {
     exit(1);
@@ -66,6 +69,7 @@ int main(int argc, char *argv[]) {
   write(STDOUT_FILENO, "\n", 1);
 
   extism_plugin_free(ctx, plugin);
+  extism_function_free(f);
   extism_context_free(ctx);
   return 0;
 }
